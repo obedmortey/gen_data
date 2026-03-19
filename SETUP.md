@@ -13,7 +13,7 @@ Before using this repo, complete the relevant steps in the [environment setup gu
 Open a Terminal and install the required packages:
 
 ```bash
-R --vanilla -e "cran_packages <- c('data.table','ggplot2','seqminer','HardyWeinberg','dplyr','qqman','knitr'); missing <- setdiff(cran_packages, rownames(installed.packages())); if (length(missing)) install.packages(missing, repos='https://cloud.r-project.org')"
+R --vanilla -e "cran_packages <- c('data.table','ggplot2','seqminer','HardyWeinberg','dplyr','qqman','knitr','metafor'); missing <- setdiff(cran_packages, rownames(installed.packages())); if (length(missing)) install.packages(missing, repos='https://cloud.r-project.org')"
 ```
 
 These packages cover the tutorials and assignment workflows in this repository.

@@ -182,6 +182,8 @@ assoc_add <- assoc[TEST == "ADD"]
 setnames(assoc_add, c("#CHROM","POS","ID"), c("CHR","BP","SNP"))
 
 # Manhattan plot
+png("./02_activities/data/manhattan_plot.png", width = 1200, height = 800, res = 150)
+
 manhattan(assoc_add,
           chr = "CHR",
           bp  = "BP",
@@ -192,12 +194,14 @@ manhattan(assoc_add,
           suggestiveline = FALSE,
           cex.axis = 1.5,
           col = c("lightblue", "lightslateblue"))
-
+dev.off()
 ```
 
 ```{r}
 # Q-Q plot
+png("./02_activities/data/QQ_plot.png", width = 1200, height = 800, res = 150)
 qq(assoc_add$P, main = "Q-Q plot of GWAS p-values")
+dev.off()
 ```
 For more examples and plotting options, see the qqman vignette: <https://cran.r-project.org/web/packages/qqman/vignettes/qqman.html>
 

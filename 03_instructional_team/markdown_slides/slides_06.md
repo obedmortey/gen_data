@@ -35,14 +35,25 @@ $ echo "Data Sciences Institute"
   ![Sales Figure, w:750](./images/PopS8.png)
 
 ----
-
+<!--
 
 # Population Structure Acts as a Confounder
 
 ![Sales Figure, w:400](./images/PopS2.png) 
 
 - Failing to account for population stratification results in incorrect variance estimates for the association test statistic $\rightarrow$ **false positive associations**.
+--->
 
+# Population Structure Acts as a Confounder
+
+- Example:
+  -   | Population subgroups | Genotype frequencies at one SNP |  % Diabetes |
+      |------------|------------------------|-------|
+      | 1 |    65.8% | 18.5%   |
+      | 2 |  42.1%   | 28.6%    |
+      | 3 | 1.6%    | 39.2%   |
+  
+- Failing to account for population stratification results in **false positive associations**.
 -----
 
 # How to Address Population Stratification?
@@ -62,37 +73,79 @@ $ echo "Data Sciences Institute"
 # Approaches to Adjust for Population Stratification
 
 - Genomic Control
-- Clustering approaches
 - Principal component analysis (PCA)
 - Mixed effect models
 
 
 -----
 
+# Review - Regression Framework
+
+- Binary traits (logistic):
+
+$$
+\log \frac{P[Y \mid X]}{1-P[Y \mid X]}=\alpha+X \beta
+$$
+
+- Continuous traits (linear):
+
+$$
+E[Y \mid X]=\alpha+X \beta
+$$
+
+- $X=$ coded genotype (additive, dominant, recessive, etc.)
+
+- Tests genetic effect:
+
+$$
+H_0: \beta=0
+$$
+
+------
+
+# Review - Regression Framework
+
+- $H_0: \beta=0$
+
+- Wald test:
+
+$$
+T=\left(\frac{\hat{\beta}-0}{S E(\hat{\beta})}\right)^2 \sim \chi^2_{(1)} . 
+$$
+
+------
+
 # Genomic Control (GC)
+
+- Suppose we conduct tests for $M$ SNPs and obtain $\chi_1^2, \ldots, \chi_M^2.$
+
+- Most SNPs are expected not to be associated with the trait.
+
+- If many SNPs show inflated test statistics $\rightarrow$ evidence of stratification.
+
+- Stratification should affect all loci equally $\rightarrow$ similar inflation across SNPs.
+
+- Compare **observed median $\mathbf{\chi}^2$** to 0.4549 (expected median of $\mathbf{\chi}^2_{(1)}$).
 
 - WE define GC lambda as
 $$
-\lambda=\frac{\operatorname{median}\left(\chi_1^2, \ldots, \chi_L^2\right)}{0.4549}
+\lambda=\frac{\operatorname{median}\left(\chi_1^2, \ldots, \chi_M^2\right)}{0.4549}
 $$
 
-  - If $\lambda>1.05 \rightarrow$ population stratification likely
-  - Corrected test statistic:
-
-$$
-\chi_{l, G C}^2=\frac{\chi_l^2}{\lambda}, \quad \forall l=1, \ldots, L.
-$$
+- GC lambda measures inflation due to stratification.
 
 -----
 
 # Key Principles of Genomic Control
 
-- Most SNPs are expected not associated with the trait.
-- If many SNPs show inflated test statistics $\rightarrow$ evidence of stratification.
-- Compare **observed median $\mathbf{X}^2$** to 0.4549 (expected under the null).
-- Ratio measures inflation due to stratification.
-- Stratification should affect all loci equally $\rightarrow$ similar inflation across SNPs.
-- Adjust each statistic by rescaling with GC $\lambda$.
+- If $\lambda>1.05 \rightarrow$ population stratification likely
+- Adjust each statistic by rescaling with GC $\lambda$:
+
+$$
+\chi_{l, G C}^2=\frac{\chi_l^2}{\lambda}, \quad \forall l=1, \ldots, M.
+$$
+
+
 <br>
 
 - Genomic control uses **a constant adjustment factor for all SNPs**.
@@ -100,9 +153,49 @@ $$
 
 ------
 
-# STRUCTURE 
+# Compute Genomic Control
 
-- Bayesian clustering model (Pritchard, Stephens, Donnelly, Genetics 2000) **infer the latent population structure** by a stratified analysis.
+```r
+# Example: Z-values from SNP association tests
+z_values <- c(0.76, -3, 0.15, 4, -0.43, 0.65, 2.67)
+
+# Convert Z-values to chi-square statistics (1 degree of freedom)
+chi_sq <- z_values^2
+
+# Compute lambda (GC inflation factor)
+lambda <- median(chi_sq) / 0.4549
+
+# Apply genomic control correction
+chi_sq_gc <- chi_sq / lambda
+
+# Convert corrected chi-square back to two-sided p-values
+p_values_gc <- 1 - pchisq(chi_sq_gc, df = 1)
+```
+
+-------
+
+# Compute Genomic Control
+
+```r
+#original p-value
+p_values_original <- 2 * (1 - pnorm(abs(z_values)))
+
+# Create a small table to compare results
+results <- data.frame(
+  p_original = p_values_original,
+  p_gc = p_values_gc
+)
+
+print(results)
+```
+
+------
+
+<!---
+
+# STRUCTURE
+
+- [Bayesian clustering model](https://web.stanford.edu/group/pritchardlab/structure.html) (Pritchard, Stephens, Donnelly, Genetics 2000) **infer the latent population structure** by a stratified analysis.
 - Assigns individuals to $K$ source populations; under admixture, each individual can have **fractional ancestry** across populations.
 - Works best with **strong population structure** (a few distinct ancestries) and **many variants / ancestry-informative markers (AIMs)**.
 
@@ -142,6 +235,9 @@ $$
 
 
 -----
+--->
+
+
 
 # Principal Component Analysis 
 (**Eigenstrat**, Nature Genetics 2006)
@@ -165,19 +261,22 @@ $$
 - Identify a pair of orthogonal vectors (red) that define a lower-dimensional plane (gray) and **maximize the variance of the projection**.
   ![bg right:50% w:650](./images/pca2.png)
 
-----
+------
 
+![Sales Figure, w:800](./images/pca6.png)
+
+------
+<!--
 # Formal Objective
 
-- Given $X=\left[x_1, \ldots, x_n\right]^{\top}$, find a $k$-dimensional subspace minimizing the mean squared reconstruction error (equivalently, maximizing captured variance).
+- Given $X$ is a large $N \times P$ matrix, find a $k$-dimensional subspace minimizing the mean squared reconstruction error (equivalently, maximizing captured variance).
 - Two equivalent views:
   - Maximize variance along chosen directions.
   - Minimize residuals from projecting onto the subspace.
   
     ![Sales Figure, w:500](./images/pca3.png)
 
-------
-
+-----
 # Optimization Formulation
 
 $$
@@ -186,31 +285,71 @@ $$
 
 - Shapes: $W \in \mathbb{R}^{n \times k}$ (scores), $C \in \mathbb{R}^{m \times k}$ (loadings).
 - Many solvers exist; a standard route is via **eigendecomposition/SVD** of a covariance matrix.
+-->
 
-------
+# *Practical Algorithm
 
-# Practical Algorithm
-
-1. Center the data (i.e., each SNP): column means of $X$ are set to zero.
-2. Compute the covariance matrix of the data: $S=X^{\top} X$.
-3. Take the top $k$ eigenvectors of the covariance matrix that have the largest eigenvalues $\rightarrow$ the top $k$ principal component.
-4. Low-rank reconstruction: $X \approx W C^{\top}$.
+- Step 1: Center the data (i.e., each SNP): column means of $X \in \mathbb{R}^{N \times P}$ are set to zero.
+- Step 2: Compute the covariance matrix of the data: $S=X^{\top} X$.
+- Step 3: Find directions of maximum variation via **Eigendecomposition/SVD** of a covariance matrix $S$.
+   - Select the top $k$ eigenvectors corresponding to the largest eigenvalues
+   - Form the matrix $C \in \mathbb{R}^{P \times K}$ (principal directions)
+- Step 4: Project individuals onto these directions.
+   - Compute principal component scores: W=XC
+   - Each row of $W$ gives the PC values (scores) for each individual
 
 -----
 
-# Lower-Dimensional Representation
+# Calculation of PCs
 
-  ![Sales Figure, w:1200](./images/pca4.png)
-  
+```r
+Example genotype matrix:
+geno <- matrix(
+  c(
+    0, 2, 2, 0,
+    1, 2, 2, 1,
+    2, 2, 1, 0,
+    0, 1, 1, 2,
+    1, 2, 2, 1
+  ),
+  nrow = 5,
+  byrow = TRUE
+)
+
+colnames(geno) <- c("SNP1", "SNP2", "SNP3", "SNP4")
+rownames(geno) <- paste0("Ind", 1:5)
+
+# Look at the genotype matrix
+print(geno)
+```
+
+-----
+
+# Calculation of PCs
+
+```r
+# Compute PCA
+# scale. = TRUE standardizes each SNP
+pca_res <- prcomp(geno, center = TRUE, scale. = TRUE)
+
+# Principal component scores for individuals
+pc_scores <- pca_res$x
+print(pc_scores)
+
+# Variance explained by each PC
+var_explained <- (pca_res$sdev^2) / sum(pca_res$sdev^2)
+print(var_explained)
+```
 ------
 
-# How Many PCs?
+# Calculation of PCs
 
-- Goal: use the fewest PCs that retain the relevant structure while avoiding noise/overfit.
-- For data visualization, only a few are needed.
-- To adjustment for stratification, the right number is data-dependent.
-- Inspect explained variance / scree plot and add PCs until major structure is captured.
-  ![bg right:50% w:600](./images/pca5.png)
+- For large genotype datasets, we can use PLINK2 to compute principal components quickly and efficiently.
+
+```bash
+
+plink2 --bfile ./02_activities/data/gwa.qc_unrelated_pruned --pca 20 --out ./02_activities/data/gwa_unrel_PCA
+```
 
 -----
 
@@ -220,13 +359,30 @@ $$
 
 - Adjustment for confounding: Include the top PCs as covariates to control for population stratification in association analyses.
 
+  - Outcome= SNP + PC1 + PC2 + ... + error
+    - If the SNP was only correlated with ancestry → effect disappears
+    - If the SNP truly affects the trait → effect remains
+
+<!--
 - 1000 Genomes PCA example: http://bwlewis.github.io/1000_genomes_examples/PCA_overview.html
+--->
 
------
+------
+<!--
 
-![Sales Figure, w:800](./images/pca6.png)
+# Lower-Dimensional Representation
 
+  ![Sales Figure, w:1200](./images/pca4.png)
+------
+--->
 
+# How Many PCs?
+
+- Goal: use the fewest PCs that retain the relevant structure while avoiding noise/overfit.
+- For data visualization, only a few are needed.
+- To adjustment for stratification, the right number is data-dependent.
+- Inspect explained variance / scree plot and add PCs until major structure is captured.
+  ![bg right:50% w:600](./images/pca5.png)
 
 ------
 
@@ -252,74 +408,69 @@ $$
 
 ----
 
-# Linear Mixed Models (LMM) - Review
-- **Ordinary linear model**:$Y=X \beta+C \alpha+\varepsilon$
+# Linear Mixed Models (LMM)
+- Basic linear model: $Y=X \beta+C \alpha+\varepsilon$
 
-- **Mixed linear model**:$Y=X \beta+C \alpha+u+\varepsilon$
-  - $u$ : genetic (heritable) random effect. $E(u)=0, \operatorname{Var}(u)=\sigma_g^2 K$.
-  - $\varepsilon$ : residual, non-genetic noise. $\operatorname{Var}(\varepsilon)=\sigma_e^2 I$.
-- **Genetic relationship matrix (GRM):** $K = \frac{G G^T}{M}$,
-  where $G=$ genotype matrix ( $N \times M$ ), $N=$ \#individuals, $M=$\# SNPs (both large in GWAS).
+- Mixed model extension: $Y=X \beta+C \alpha+u+\varepsilon$
+
+  - $u$ : genetic random effects
+  - $\varepsilon$ : residual, non-heritable variation
+- Assumptions on random effects: $E(u)=0, \quad \operatorname{Var}(u)=\sigma_g^2 K.$
+
+- In practice, $K$ is approximated as $K=G G^T / M$, where $G$ is the genotype matrix constructed from all $M$ SNPs.
+- Alternatively,$K$ can be estimated from family pedigree data.
 
 ------
 
-# Linear Mixed effect Models (LMM) - Review
+# Association testing in the LMM framework
 
+Two-step fitting procedure for LMM:
 
-- $K$ captures all kinds of relatedness:population stratification, family structure and hidden/cryptic relatedness.
-- $\sigma_g^2$ : genetic variance that we want to estimate.
-  - Estimation methods: REML or AI-REML.
-- From the model, we can also derive estimates of random effects $(u)$.
-
--------
-
-# Association Testing with LMM (Step 1)
-
-**Step 1: Fit the null model**
-
+- STEP 1: fit the null model.
 $$
 Y=C \alpha+u+\varepsilon
 $$
 
-- Remove covariate effects:
+  - $E(u)=0, \operatorname{Var}(u)=\sigma_g^2 K, \operatorname{Var}(\varepsilon)=\sigma_e^2 I$
+  - Using REML/AI-REML we can estimate $\widehat{\sigma_g^2}$ and $\widehat{\sigma_e^2}$.
+  - We can also get BLUP (best linear unbiased predictors)
 
 $$
-\tilde{Y}=u+\varepsilon
+\widehat{u}=\mathrm{K} \widehat{\sigma_g^2} \times \Sigma^{-1}\left(\mathrm{I}-\mathrm{C}\left(C^T \Sigma^{-1} \mathrm{C}\right)^{-1} C^T \Sigma^{-1}\right) \mathrm{Y}, \Sigma=\widehat{\sigma_g^2} \mathrm{~K}+\widehat{\sigma_e^2} \mathrm{I}.
 $$
 
-- Using REML/AI-REML we estimate $\sigma_g^2$ and $\sigma_e^2$.
-- Can also obtain **BLUPs** (best linear unbiased predictors) of $u$:
+
+----
+
+# Association testing in the LMM framework
+
+- STEP 2: test for association with each SNP.  $H_0:\beta=0$.
+
 $$
-\hat{u}=\mathrm{K} \widehat{\sigma_g^2} \times \Sigma^{-1}\left(\mathrm{I}-\mathrm{C}\left(C^T \Sigma^{-1} \mathrm{C}\right)^{-1} C^T \Sigma^{-1}\right) \mathrm{Y}
+\widehat{\boldsymbol{Y}}_{\text {resid }}^{\star}=\boldsymbol{Y}-\widehat{u}-C\hat{\alpha} .
 $$
 
-  - $\Sigma=\widehat{\sigma_g^2} \mathrm{~K}+\widehat{\sigma_e^2} \mathrm{I}$.
+- Test for association in a linear (non-mixed) regression model
 
+$$
+\widehat{\boldsymbol{Y}}_{\text {resid }}^{\star}=X \beta+\varepsilon
+$$
 
+- STEP 1 is computationally demanding (large matrix operations like inversions), but it only needs to be done once under the null
+
+- STEP 2 is then repeated for millions of SNPs
 ------
 
-# Association Testing with LMM (Step 2)
+# Q–Q plot as a Diagnostic Tool
 
-**Step 2: Test SNP effects**
-- Hypothesis: $H_0$ : $\beta=0$
-- Residual phenotype after removing random effect:
+- Order SNPs according to their p-values.
 
-$$
-Y_{\text {resid }}^*=\tilde{Y}-\hat{u}
-$$
+- Compare the distribution of observed vs. expected test statistics or p-values under the null hypothesis.
 
-- Fit a standard linear regression:
+- Deviations from the diagonal line indicate potential population stratification or true associations.
+   ![Sales Figure, w:700](./images/PopS5.png) 
 
-$$
-Y_{\text {resid }}^*=X \beta+\varepsilon
-$$
-
-- **Computational aspects**:
-- Step 1 is expensive (matrix inversions, large-scale operations) but done only once.
-- Step 2 is repeated across millions of SNPs (efficient).
-
-
---------
+------
 
 # PCA VS. Mixed Model
 
@@ -335,17 +486,6 @@ $$
 -->
 ------
 
-# Q–Q plot as a Diagnostic Tool
-
-- Order SNPs according to their p-values.
-
-- Compare the distribution of observed vs. expected test statistics or p-values under the null hypothesis.
-
-- Deviations from the diagonal line indicate potential population stratification or true associations.
-   ![Sales Figure, w:700](./images/PopS5.png) 
-
-------
-
 # Is population stratification fully resolved?
 
 - The answer is no — existing correction methods may fail or be insufficient in some scenarios.
@@ -358,6 +498,9 @@ $$
 
 -------
 
+# Genotype Imputation
+
+------
 # Genotype Imputation
 
 - Missing data in genotypes can arise in two ways:
@@ -383,7 +526,7 @@ Genotype data with missing data at untyped SNPs (grey question marks)
 | 1 | ? | 2 | ? | 2 | ? | 0 | 2 | 1 | ? | 2 | ? | 1 |
 
 ------
-
+<!---
 # UK Biobank Imputation
 
 - UK Biobank released data on $\sim 500,000$ individuals, including genotypes and thousands of phenotypes.
@@ -399,6 +542,8 @@ Genotype data with missing data at untyped SNPs (grey question marks)
   ![Sales Figure, w:600](./images/LD_imputation.png) 
 
 -----
+
+--->
 
 # Principles of Imputation
 
@@ -427,39 +572,21 @@ Genotype data with missing data at untyped SNPs (grey question marks)
 
 -----
 
+# Matching Haplotypes
+
+- Find a pair of haplotypes in the reference set that match the observed genotypes
+
+  ![Sales Figure, w:500](./images/impute_proc1.png)
+
+
+-----
+
 # Inferring Missing Genotypes
 
 - Once suitable haplotypes are identified, missing alleles can be filled in.
 - The imputed genotype data is a probabilistic reconstruction, guided by LD and haplotype structure.
-  ![Sales Figure, w:700](./images/impute2.png) 
 
------
-
-# Imputation Workflow
-
-  ![Sales Figure, w:750](./images/impute_workflow.png)
-
-
-------
-
-# How Imputation Works
-
-- Starting point: a reference set of haplotypes.
-- Using the linkage disequilibrium (LD) structure in a reference population, together with the LD among observed SNPs in a dataset, we can impute the alleles of an untyped (hidden) SNP.
-- Critical assumption: reference samples and study participants come from the same (or very similar) population.
-- If mismatched, imputation accuracy declines significantly.
-
-
------
-
-# Reference Panel Resources and Limitations
-- 1000 Genomes Project: ~7.7M SNPs.
-- Haplotype Reference Consortium (HRC): 64,976 haplotypes, $>39$ M SNPs (minor allele count $\geq 5$ ).
-- TOPMed Reference Panel: ~97K deeply sequenced genomes, >300M variants.
-- Imputation accuracy depends on:
-  - Reference panel size. Small panels can overfit and yield unstable imputations.
-  - Population match. The study cohort should resemble the reference.
-- Whole-genome sequencing (WGS) data with large sample sizes are very useful as reference datasets for imputation, especially for low-frequency variants.
+  ![Sales Figure, w:500](./images/impute_proc2.png)
 
 -----
 
@@ -485,15 +612,29 @@ $$
 - Common software: IMPUTE, MACH, BEAGLE.
 - The Michigan Imputation Server: https://imputationserver.sph.umich.edu/index.html.
 
-----
 
-# Minor Allele Frequency (MAF) Effect
-
-- Common SNPs are imputed more accurately than rare SNPs.
-  ![bg right:50% w:700](./images/impute_maf.png)
 -----
 
-# Using Imputed Genotypes
+# Imputation Workflow
+
+  ![Sales Figure, w:750](./images/impute_workflow.png)
+
+
+------
+
+# Reference Panel Resources and Limitations
+- 1000 Genomes Project: ~7.7M SNPs.
+- Haplotype Reference Consortium (HRC): 64,976 haplotypes, $>39$ M SNPs (minor allele count $\geq 5$ ).
+- TOPMed Reference Panel: ~97K deeply sequenced genomes, >300M variants.
+- Imputation accuracy depends on:
+  - Reference panel size. Small panels can overfit and yield unstable imputations.
+  - Population match. The study cohort should resemble the reference.
+- Whole-genome sequencing (WGS) data with large sample sizes are very useful as reference datasets for imputation, especially for low-frequency variants.
+
+--------
+
+
+# Imputed Genotypes
 
 - Accuracy matters $\rightarrow$ **Poor imputation** can create **false positives**.
 - SNPs flagged as associated are often **regenotyped*** for confirmation.
@@ -560,7 +701,15 @@ where $v_{i l}=\mathbb{E}\left(x_{i l}^2 \mid p_i\right)-\left[\mathbb{E}\left(x
 
   ![Sales Figure, w:900](./images/imputeserver.png)
   
---------
+----
+<!---
+# Minor Allele Frequency (MAF) Effect
+
+- Common SNPs are imputed more accurately than rare SNPs.
+  ![bg right:50% w:700](./images/impute_maf.png)
+-----
+
+--->
 
 # Application
 
@@ -571,15 +720,15 @@ where $v_{i l}=\mathbb{E}\left(x_{i l}^2 \mid p_i\right)-\left[\mathbb{E}\left(x
 
 
 ----------
-
+<!---
 # Application 
 
 - Imputed variants densely tile the region and highlight signals missed by the 60k typed set.
 - Imputed dosages separate well by true genotypes (AA/AC/CC), indicating high accuracy.
  ![bg right:50% w:600](./images/impute_gwas.png)
 
-
 ----------
+
 
 # Take-Home Point
 
@@ -591,12 +740,12 @@ where $v_{i l}=\mathbb{E}\left(x_{i l}^2 \mid p_i\right)-\left[\mathbb{E}\left(x
 - Extending the same reliability to rare variants requires larger, ancestry-representative WGS panels, improved phasing, and ancestry-aware algorithms, with stringent quality control and experimental confirmation of key findings.
 
 ------
+--->
 
 # What's Next
 
 - Quality Control
 - GWAS Tutorial
-- Linkage and Association
 - Post-GWAS Analyses
 
 ## What questions do you have about anything from today?

@@ -43,10 +43,6 @@ Explanation of the main arguments:
 
 -   **hwe** – removes markers that strongly deviate from Hardy–Weinberg equilibrium (p-value \< 5×10⁻⁵).
 
-For details on these filters, see: <https://zzz.bwh.harvard.edu/plink/thresh.shtml#hwd>
-
-A broader overview of QC options is given here: <https://zzz.bwh.harvard.edu/plink/summary.shtml>
-
 **OUTPUT FILES**: `gwa.qc.bed`, `gwa.qc.bim` and `gwa.qc.fam`
 
 #### LD Pruning
@@ -54,7 +50,7 @@ A broader overview of QC options is given here: <https://zzz.bwh.harvard.edu/pli
 We next create a subset of approximately independent SNPs. This LD-pruned set will be used for PCA and removal of related individuals.
 
 ```{bash,results='hide',message=FALSE, warning=FALSE}
-plink2 --bfile ./02_activities/data/gwa.qc --indep-pairwise 500 50 0.05 --out ./02_activities/data/gwa.qc_pruned
+plink2 --bfile ./02_activities/data/gwa.qc --indep-pairwise 500 50 0.05 --out ./02_activities/data/gwa.qc
 ```
 
 The three numbers supplied to --indep-pairwise are:
@@ -70,10 +66,9 @@ Within each window PLINK computes LD for all SNP pairs, removes one SNP from any
 We then build a new dataset using only the pruned SNPs:
 
 ```{bash,results='hide',message=FALSE, warning=FALSE}
-plink2 --bfile ./02_activities/data/gwa.qc --extract ./02_activities/data/gwa.qc_pruned.prune.in --make-bed --out ./02_activities/data/gwa.qc_pruned
+plink2 --bfile ./02_activities/data/gwa.qc --extract ./02_activities/data/gwa.qc.prune.in --make-bed --out ./02_activities/data/gwa.qc_pruned
 ```
 
-Additional information on pruning can be found here: <https://zzz.bwh.harvard.edu/plink/summary.shtml#prune>
 
 **OUTPUT FILES**: `gwa.qc_pruned.bed`, `gwa.qc_pruned.bim` and `gwa.qc_pruned.fam`
 
@@ -83,30 +78,40 @@ Because the linear regression models used later assume that samples are independ
 
 PLINK2 implements the KING-robust kinship method internally. We can use the --king-cutoff option on the LD-pruned dataset to identify a set of unrelated individuals. A cutoff of 0.0884 corresponds roughly to removing up to 2nd-degree relatives.
 
+duplicate / MZ twin: ~0.5
+
+1st degree: ~0.25
+
+2nd degree: ~0.125
+
+3rd degree: ~0.0625
+
 ```{bash,results='hide',message=FALSE, warning=FALSE}
-plink2 --bfile ./02_activities/data/gwa.qc_pruned --king-cutoff 0.0884 --out ./02_activities/data/gwa_king
+plink2 --bfile ./02_activities/data/gwa.qc_pruned --king-cutoff 0.0884 --out ./02_activities/data/gwa_qc
 ```
+
+--king-cutoff T means: remove one individual from any pair with kinship ≥ T
 
 This command uses the pruned SNP set to estimate pairwise kinship and then automatically chooses a subset of individuals that are mutually unrelated up to the specified cutoff. It produces ID files such as:
 
-`./02_activities/data/gwa_king.king.cutoff.in.id` – IDs of individuals to keep (unrelated set)
+`./02_activities/data/gwa_qc.king.cutoff.in.id` – IDs of individuals to keep (unrelated set)
 
-`./02_activities/data/gwa_king.king.cutoff.out.id` – IDs of individuals to remove
+`./02_activities/data/gwa_qc.king.cutoff.out.id` – IDs of individuals to remove
 
 We then create a dataset of unrelated samples:
 
 ```{bash,results='hide',message=FALSE, warning=FALSE}
-plink2 --bfile ./02_activities/data/gwa.qc --keep ./02_activities/data/gwa_king.king.cutoff.in.id --make-bed --out ./02_activities/data/gwa.qc_unrelated
+plink2 --bfile ./02_activities/data/gwa.qc --keep ./02_activities/data/gwa_qc.king.cutoff.in.id --make-bed --out ./02_activities/data/gwa.qc_unrelated
 ```
 
 #### Principal-component analysis (PCA)
 
 To account for population structure, we compute principal components from pruned SNPs in the unrelated dataset.
 
-We reuse the same `./02_activities/data/gwa.qc_pruned.prune.in` file to keep the same set of approximately independent SNPs:
+We reuse the same `./02_activities/data/gwa.qc.prune.in` file to keep the same set of approximately independent SNPs:
 
 ```{bash,results='hide',message=FALSE, warning=FALSE}
-plink2 --bfile ./02_activities/data/gwa.qc_unrelated --extract ./02_activities/data/gwa.qc_pruned.prune.in --make-bed --out ./02_activities/data/gwa.qc_unrelated_pruned
+plink2 --bfile ./02_activities/data/gwa.qc_unrelated --extract ./02_activities/data/gwa.qc.prune.in --make-bed --out ./02_activities/data/gwa.qc_unrelated_pruned
 ```
 
 Now perform PCA:
@@ -132,7 +137,7 @@ Once QC, pruning, PCA, and relatedness filtering are complete, we can run the as
 You can later experiment with including more PCs to see how the results change.
 
 ```{bash,results='hide',message=FALSE, warning=FALSE}
-plink2 --bfile ./02_activities/data/gwa.qc --ci 0.95 --logistic --covar ./02_activities/data/gwa_unrel_PCA.eigenvec --covar-name PC1,PC2,PC3 --adjust --out ./02_activities/data/gwa.qc_assoc
+plink2 --bfile ./02_activities/data/gwa.qc_unrelated --ci 0.95 --logistic --covar ./02_activities/data/gwa_unrel_PCA.eigenvec --covar-name PC1,PC2,PC3 --adjust --out ./02_activities/data/gwa.qc_assoc
 ```
 
 Explanation of the main options:
@@ -163,6 +168,12 @@ assoc <- data.table::fread("./02_activities/data/gwa.qc_assoc.PHENO1.glm.logisti
 
 head(assoc)
 
+assoc_adjusted <- data.table::fread("./02_activities/data/gwa.qc_assoc.PHENO1.glm.logistic.hybrid.adjusted")
+head(assoc_adjusted)
+```
+
+```{r}
+
 # Keep only the additive test (one row per SNP)
 assoc_add <- assoc[TEST == "ADD"]
 
@@ -171,7 +182,63 @@ assoc_add <- assoc[TEST == "ADD"]
 setnames(assoc_add, c("#CHROM","POS","ID"), c("CHR","BP","SNP"))
 
 # Manhattan plot
+png("./02_activities/data/manhattan_plot.png", width = 1200, height = 800, res = 150)
+
 manhattan(assoc_add,
+          chr = "CHR",
+          bp  = "BP",
+         snp = "SNP",
+          p   = "P",
+          xlab = "",
+          ylab = "",
+          suggestiveline = FALSE,
+          cex.axis = 1.5,
+          col = c("lightblue", "lightslateblue"),
+          annotatePval=5e-5) 
+dev.off()
+```
+
+```{r}
+# Q-Q plot
+png("./02_activities/data/QQ_plot.png", width = 1200, height = 800, res = 150)
+qq(assoc_add$P, main = "Q-Q plot of GWAS p-values")
+dev.off()
+```
+For more examples and plotting options, see the qqman vignette: <https://cran.r-project.org/web/packages/qqman/vignettes/qqman.html>
+
+
+#### *Conditional Analysis
+```{bash}
+
+plink2 \
+  --bfile ./02_activities/data/gwa.qc_unrelated \
+  --logistic \
+  --covar ./02_activities/data/gwa_unrel_PCA.eigenvec \
+  --covar-name PC1,PC2,PC3 \
+  --condition rs6768587 \
+  --out ./02_activities/data/gwa.qc_assoc_cond_rs6768587
+```
+
+```{r}
+assoc_condition <- data.table::fread("./02_activities/data/gwa.qc_assoc_cond_rs6768587.PHENO1.glm.logistic.hybrid")
+
+assoc_condition=na.omit(assoc_condition)
+head(assoc_condition)
+
+assoc_add1 <- assoc_condition[TEST == "ADD"]
+head(assoc_add1)
+```
+
+```{r}
+
+# qqman expects columns named CHR, BP, SNP, and P.
+# In PLINK2 output they are #CHROM, POS, ID, and P.
+setnames(assoc_add1, c("#CHROM","POS","ID"), c("CHR","BP","SNP"))
+
+# Manhattan plot
+png("./02_activities/data/manhattan_condition_plot.png", width = 1200, height = 800, res = 150)
+
+ manhattan(assoc_add1,
           chr = "CHR",
           bp  = "BP",
           snp = "SNP",
@@ -180,14 +247,32 @@ manhattan(assoc_add,
           ylab = "",
           suggestiveline = FALSE,
           cex.axis = 1.5,
-          col = c("lightblue", "lightslateblue"))
-
-# Q-Q plot
-qq(assoc_add$P, main = "Q-Q plot of GWAS p-values")
-
+          col = c("lightblue", "lightslateblue"), annotatePval=5e-5)         
+dev.off()
 ```
 
-For more examples and plotting options, see the qqman vignette: <https://cran.r-project.org/web/packages/qqman/vignettes/qqman.html>
+
+
+ You can also create a text file with one SNP ID per line, for example condition_snps.txt:
+
+rs6768587
+
+rs1234567
+
+rs7654321
+
+```{bash}
+
+setopt interactivecomments
+
+#plink2 \
+#  --bfile ./02_activities/data/gwa.qc_unrelated \
+#  --logistic \
+#  --covar ./02_activities/data/gwa_unrel_PCA.eigenvec \
+#  --covar-name PC1,PC2,PC3 \
+#  --condition-list condition_snps.txt \
+#  --out ./02_activities/data/gwa.qc_assoc_cond_list
+```
 
 #### Appendix – Overview of commonly used genetic analysis tools
 

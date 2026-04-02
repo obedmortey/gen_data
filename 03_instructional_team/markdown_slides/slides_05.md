@@ -291,7 +291,7 @@ $$
 # Multiple Testing
 
 - Multiple testing issues arise when many markers are tested as in GWAS.
-- Major statistical problem as it leads to loss of power, and increased false positive rates if not accounted for.
+- Major statistical problem as it leads to increased false positive rates if not accounted for.
 - Idea: Test each marker separately and adjust the significance level of each test.
 
 
@@ -318,16 +318,15 @@ $H_0(m)$ : no association between the $m$-th SNP and the phenotype.
 
 # Bonferroni method
 
-- **FWER (family-wise error rate)** or experiment-wise error rate:
+- **FWER (family-wise error rate)**:
 $$
 F W E R=P\left(\text { reject at least one } H_0(m) \mid H_0(m) \text { is true for all } m\right)
 $$
 <br>
 
-- **Bonferroni**: fix $F W E R=\alpha$ and set individual significance levels at $\frac{\alpha}{M}$.
+- **Bonferroni correction**: fix $F W E R=\alpha$ and set individual significance levels at $\frac{\alpha}{M}$.
 - This ensures that the FWER is less than the desired level $\alpha$ (e.g. 0.05).
-- If markers are not independent (due to linkage disequilibrium) the Bonferroni adjustment is conservative.
-- E.g. extreme case: only one independent marker among $M$ and the true FWER is $\frac{\alpha}{M}$.
+- Bonferroni correction is conservative if markers are not independent (due to linkage disequilibrium).
 
 -----
 
